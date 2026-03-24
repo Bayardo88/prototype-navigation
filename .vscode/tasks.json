@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev server (Cursor Browser — 127.0.0.1:5173)",
+      "type": "npm",
+      "script": "dev:cursor",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false
+      },
+      "group": "build"
+    }
+  ]
+}

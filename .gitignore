@@ -1,0 +1,7 @@
+node_modules
+dist
+.npm-cache
+.vercel
+
+# Local git metadata when using separate-git-dir (see .git file)
+.git-repo

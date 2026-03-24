@@ -1,0 +1,4 @@
+# Vercel runs `npm run build` on their servers; exclude local-only cruft from uploads when using CLI.
+.git
+*.log
+.DS_Store
