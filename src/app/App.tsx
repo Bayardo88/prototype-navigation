@@ -321,7 +321,7 @@ export default function App() {
         {/* Header menus: sticky left so they don't pan horizontally,
             normal flow so they scroll away vertically */}
         <div
-          className="sticky left-0 z-40"
+          className="sticky left-0 z-40 overflow-visible"
           style={{ width: containerWidth || "100%" }}
         >
           <FirmHeaderAdapted

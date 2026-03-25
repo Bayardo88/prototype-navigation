@@ -5,3 +5,6 @@ dist
 
 # Local git metadata when using separate-git-dir (see .git file)
 .git-repo
+
+# Full desktop export (large); regenerate with rsync locally if needed
+desktop-copy-export/

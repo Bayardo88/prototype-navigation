@@ -23,7 +23,7 @@ export function Dashboard() {
               </div>
               <span className="text-[12px] text-[#64748b] font-medium">FIRMS</span>
             </div>
-            <p className="text-[32px] font-semibold text-[#0f172a] mb-[4px]">3</p>
+            <p className="text-[32px] font-semibold text-[#0f172a] mb-[4px]">5</p>
             <p className="text-[14px] text-[#64748b]">Active firms</p>
           </div>
 
