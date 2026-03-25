@@ -8,6 +8,10 @@ import type { TabTableState } from "./components/firm-table";
 import type { Currency, DisplayUnit, PageContext, PrimaryNavSelectionFocus } from "./components/shared-types";
 import { NewTabModal, EditTabModal } from "./components/new-tab-modal";
 import { FUND_COLUMN_ORDER } from "./components/new-tab-modal";
+import {
+  DASHBOARD_DEEP_LINK_FIRM,
+  type DashboardFeatureAction,
+} from "./dashboard-nav";
 
 export interface Tab {
   id: string;
@@ -178,6 +182,19 @@ export default function App() {
 
   const handleFitColumns = useCallback(() => {
     setFitColumnsTrigger((c) => c + 1);
+  }, []);
+
+  const handleDashboardFeature = useCallback((action: DashboardFeatureAction) => {
+    if (action.type === "open-firm-secondary") {
+      setSelectedFirm((f) => f ?? DASHBOARD_DEEP_LINK_FIRM);
+      setSelectedFund(null);
+      setSelectedCompany(null);
+      setActiveSecondaryTab(action.tab);
+      setPrimaryNavFocus("firm");
+      return;
+    }
+    // TODO: Wire Data Rollover, Auditor Onboarding, Firm Settings when routes exist
+    console.info("[Dashboard] Feature not yet routed:", action.featureId);
   }, []);
 
   const handleAddTab = useCallback(() => {
@@ -363,7 +380,7 @@ export default function App() {
 
         {/* Conditionally render Dashboard or Table based on firm selection */}
         {!selectedFirm ? (
-          <Dashboard />
+          <Dashboard onFeatureAction={handleDashboardFeature} />
         ) : activeSecondaryTab === "comps" ? (
           <CompsGroup />
         ) : activeSecondaryTab === "waterfalls" ? (

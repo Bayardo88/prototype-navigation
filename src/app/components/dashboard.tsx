@@ -1,144 +1,85 @@
 import { BarChart3, TrendingUp, Building2, Briefcase, Users } from "lucide-react";
+import type { DashboardFeatureAction } from "../dashboard-nav";
+import { DashboardAIPromptSection } from "./dashboard-ai-prompt";
+import { DashboardTodoListSection } from "./dashboard-todo-list";
+import { DashboardFeatureGridSection } from "./dashboard-feature-grid";
 
-export function Dashboard() {
+export function Dashboard({ onFeatureAction }: { onFeatureAction: (action: DashboardFeatureAction) => void }) {
   return (
     <div className="flex-1 bg-[#f8fafc] p-[32px]">
-      <div className="max-w-[1400px] mx-auto">
+      <div className="mx-auto max-w-[1400px]">
         {/* Welcome Section */}
         <div className="mb-[32px]">
-          <h1 className="text-[32px] font-semibold text-[#0f172a] mb-[8px]">
-            Welcome to Portfolio Management
-          </h1>
+          <h1 className="mb-[8px] text-[32px] font-semibold text-[#0f172a]">Welcome to Portfolio Management</h1>
           <p className="text-[16px] text-[#64748b]">
-            Select a firm from the dropdown above to view your portfolio summary
+            Select a firm from the dropdown above to view your portfolio summary, or start from AI and shortcuts below.
           </p>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px] mb-[32px]">
-          <div className="bg-white rounded-[12px] p-[24px] border border-[#e2e8f0] shadow-sm">
-            <div className="flex items-center justify-between mb-[16px]">
-              <div className="bg-[#eff6ff] p-[12px] rounded-[8px]">
+        <div className="mb-[32px] grid grid-cols-1 gap-[20px] md:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-[12px] border border-[#e2e8f0] bg-white p-[24px] shadow-sm">
+            <div className="mb-[16px] flex items-center justify-between">
+              <div className="rounded-[8px] bg-[#eff6ff] p-[12px]">
                 <Building2 className="size-[24px] text-[#037de8]" />
               </div>
-              <span className="text-[12px] text-[#64748b] font-medium">FIRMS</span>
+              <span className="text-[12px] font-medium text-[#64748b]">FIRMS</span>
             </div>
-            <p className="text-[32px] font-semibold text-[#0f172a] mb-[4px]">5</p>
+            <p className="mb-[4px] text-[32px] font-semibold text-[#0f172a]">5</p>
             <p className="text-[14px] text-[#64748b]">Active firms</p>
           </div>
 
-          <div className="bg-white rounded-[12px] p-[24px] border border-[#e2e8f0] shadow-sm">
-            <div className="flex items-center justify-between mb-[16px]">
-              <div className="bg-[#f0fdf4] p-[12px] rounded-[8px]">
+          <div className="rounded-[12px] border border-[#e2e8f0] bg-white p-[24px] shadow-sm">
+            <div className="mb-[16px] flex items-center justify-between">
+              <div className="rounded-[8px] bg-[#f0fdf4] p-[12px]">
                 <Briefcase className="size-[24px] text-[#16a34a]" />
               </div>
-              <span className="text-[12px] text-[#64748b] font-medium">FUNDS</span>
+              <span className="text-[12px] font-medium text-[#64748b]">FUNDS</span>
             </div>
-            <p className="text-[32px] font-semibold text-[#0f172a] mb-[4px]">5</p>
+            <p className="mb-[4px] text-[32px] font-semibold text-[#0f172a]">5</p>
             <p className="text-[14px] text-[#64748b]">Investment funds</p>
           </div>
 
-          <div className="bg-white rounded-[12px] p-[24px] border border-[#e2e8f0] shadow-sm">
-            <div className="flex items-center justify-between mb-[16px]">
-              <div className="bg-[#fef3f2] p-[12px] rounded-[8px]">
+          <div className="rounded-[12px] border border-[#e2e8f0] bg-white p-[24px] shadow-sm">
+            <div className="mb-[16px] flex items-center justify-between">
+              <div className="rounded-[8px] bg-[#fef3f2] p-[12px]">
                 <Users className="size-[24px] text-[#dc2626]" />
               </div>
-              <span className="text-[12px] text-[#64748b] font-medium">COMPANIES</span>
+              <span className="text-[12px] font-medium text-[#64748b]">COMPANIES</span>
             </div>
-            <p className="text-[32px] font-semibold text-[#0f172a] mb-[4px]">12</p>
+            <p className="mb-[4px] text-[32px] font-semibold text-[#0f172a]">12</p>
             <p className="text-[14px] text-[#64748b]">Portfolio companies</p>
           </div>
 
-          <div className="bg-white rounded-[12px] p-[24px] border border-[#e2e8f0] shadow-sm">
-            <div className="flex items-center justify-between mb-[16px]">
-              <div className="bg-[#fefce8] p-[12px] rounded-[8px]">
+          <div className="rounded-[12px] border border-[#e2e8f0] bg-white p-[24px] shadow-sm">
+            <div className="mb-[16px] flex items-center justify-between">
+              <div className="rounded-[8px] bg-[#fefce8] p-[12px]">
                 <TrendingUp className="size-[24px] text-[#ca8a04]" />
               </div>
-              <span className="text-[12px] text-[#64748b] font-medium">PERFORMANCE</span>
+              <span className="text-[12px] font-medium text-[#64748b]">PERFORMANCE</span>
             </div>
-            <p className="text-[32px] font-semibold text-[#0f172a] mb-[4px]">+24%</p>
+            <p className="mb-[4px] text-[32px] font-semibold text-[#0f172a]">+24%</p>
             <p className="text-[14px] text-[#64748b]">Avg. portfolio growth</p>
           </div>
         </div>
 
-        {/* Getting Started */}
-        <div className="bg-white rounded-[12px] p-[32px] border border-[#e2e8f0] shadow-sm mb-[32px]">
-          <div className="flex items-start gap-[16px] mb-[24px]">
-            <div className="bg-[#eff6ff] p-[12px] rounded-[8px]">
-              <BarChart3 className="size-[28px] text-[#037de8]" />
-            </div>
-            <div>
-              <h2 className="text-[20px] font-semibold text-[#0f172a] mb-[8px]">
-                Getting Started
-              </h2>
-              <p className="text-[14px] text-[#64748b]">
-                Select a firm from the dropdown in the header to begin exploring your portfolio data
-              </p>
-            </div>
-          </div>
+        <DashboardAIPromptSection />
 
-          <div className="space-y-[16px]">
-            <div className="flex items-start gap-[12px]">
-              <div className="flex-shrink-0 w-[24px] h-[24px] rounded-full bg-[#037de8] flex items-center justify-center text-white text-[12px] font-semibold">
-                1
-              </div>
-              <div>
-                <p className="text-[14px] font-medium text-[#0f172a] mb-[4px]">
-                  Select a Firm
-                </p>
-                <p className="text-[13px] text-[#64748b]">
-                  Click on the firm dropdown in the header to choose from available firms
-                </p>
-              </div>
-            </div>
+        <DashboardTodoListSection />
 
-            <div className="flex items-start gap-[12px]">
-              <div className="flex-shrink-0 w-[24px] h-[24px] rounded-full bg-[#037de8] flex items-center justify-center text-white text-[12px] font-semibold">
-                2
-              </div>
-              <div>
-                <p className="text-[14px] font-medium text-[#0f172a] mb-[4px]">
-                  Filter by Fund or Company
-                </p>
-                <p className="text-[13px] text-[#64748b]">
-                  Optionally narrow down your view by selecting a specific fund or company
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-[12px]">
-              <div className="flex-shrink-0 w-[24px] h-[24px] rounded-full bg-[#037de8] flex items-center justify-center text-white text-[12px] font-semibold">
-                3
-              </div>
-              <div>
-                <p className="text-[14px] font-medium text-[#0f172a] mb-[4px]">
-                  View Portfolio Data
-                </p>
-                <p className="text-[13px] text-[#64748b]">
-                  Explore detailed metrics, add custom columns, and manage multiple tabs
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DashboardFeatureGridSection onFeatureAction={onFeatureAction} />
 
         {/* Quick Actions */}
-        <div className="bg-gradient-to-br from-[#037de8] to-[#0369d1] rounded-[12px] p-[32px] text-white">
-          <h2 className="text-[20px] font-semibold mb-[12px]">Quick Actions</h2>
-          <p className="text-[14px] text-white/80 mb-[24px]">
-            Use these keyboard shortcuts to navigate faster
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
+        <div className="rounded-[12px] bg-gradient-to-br from-[#037de8] to-[#0369d1] p-[32px] text-white">
+          <h2 className="mb-[12px] text-[20px] font-semibold">Quick Actions</h2>
+          <p className="mb-[24px] text-[14px] text-white/80">Use these keyboard shortcuts to navigate faster</p>
+          <div className="grid grid-cols-1 gap-[16px] md:grid-cols-2">
             <div className="flex items-center gap-[12px]">
-              <kbd className="bg-white/20 px-[12px] py-[6px] rounded-[6px] text-[13px] font-mono">
-                cmd + K
-              </kbd>
+              <kbd className="rounded-[6px] bg-white/20 px-[12px] py-[6px] font-mono text-[13px]">cmd + K</kbd>
               <span className="text-[14px]">Open search</span>
             </div>
             <div className="flex items-center gap-[12px]">
-              <kbd className="bg-white/20 px-[12px] py-[6px] rounded-[6px] text-[13px] font-mono">
-                ESC
-              </kbd>
+              <kbd className="rounded-[6px] bg-white/20 px-[12px] py-[6px] font-mono text-[13px]">ESC</kbd>
               <span className="text-[14px]">Close modals</span>
             </div>
           </div>
