@@ -78,7 +78,7 @@ export function CompsGroup() {
     <div className="bg-white w-full min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <h1 className="text-2xl font-semibold text-[#0f172a] mb-6">Comps Group</h1>
+        <h1 className="text-2xl font-semibold text-[#0f172a] mb-6">Comp Groups</h1>
 
         {/* Comp Groups List */}
         <div className="bg-white border border-[#e2e8f0] rounded-lg overflow-hidden mb-6">
