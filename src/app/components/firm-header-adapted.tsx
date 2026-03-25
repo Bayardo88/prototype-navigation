@@ -1528,6 +1528,8 @@ const FIRM_SECONDARY_NAV: { id: string; label: string }[] = [
   { id: "schedule-of-investment", label: "Schedule of Investments" },
   { id: "comps", label: "Comp Groups" },
   { id: "waterfalls", label: "Waterfalls" },
+  { id: "reports", label: "Reports" },
+  { id: "documents", label: "Documents" },
 ];
 
 /** Fund-only secondary bar — [Navigation V3](https://www.figma.com/design/ovDXo60vmHGOgtZN5knuAF/Navigation-V3?node-id=206-5124) */

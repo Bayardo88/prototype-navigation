@@ -14,6 +14,15 @@ export interface Tab {
   label: string;
 }
 
+function FirmSecondaryPlaceholder({ title }: { title: string }) {
+  return (
+    <div className="min-h-screen w-full bg-white p-8 font-['Inter',sans-serif]">
+      <h1 className="mb-2 text-2xl font-semibold text-[#0f172a]">{title}</h1>
+      <p className="text-[14px] text-[#64748b]">Content for this section will go here.</p>
+    </div>
+  );
+}
+
 // ─── Helper function to generate context-aware default tab labels ───────
 function getDefaultTabLabel(context: PageContext, tabType: "summary" | "glance"): string {
   if (tabType === "summary") {
@@ -359,6 +368,10 @@ export default function App() {
           <CompsGroup />
         ) : activeSecondaryTab === "waterfalls" ? (
           <Waterfalls />
+        ) : activeSecondaryTab === "reports" ? (
+          <FirmSecondaryPlaceholder title="Reports" />
+        ) : activeSecondaryTab === "documents" ? (
+          <FirmSecondaryPlaceholder title="Documents" />
         ) : (
           <FirmTable
             key={activeTabId}
