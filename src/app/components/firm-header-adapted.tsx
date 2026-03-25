@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import svgPaths from "../../imports/svg-9pgj3kgk0q";
 import svgPathsCompany from "../../imports/svg-xjx37gtuz3";
 import filterIconPaths from "../../imports/svg-kahe0su0d2";
 import imgAvatar from "@/assets/7988f0c1d291e15af6b050e31020b2eccc85ea2d.png";
-import { ChevronDown, Plus, Pencil, Copy, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Pencil, Copy, Trash2, Pin } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import { getCurrencySymbol, CURRENCIES, UNIT_CYCLE } from "./shared-types";
 import type { Currency, DisplayUnit, PrimaryNavSelectionFocus } from "./shared-types";
@@ -478,11 +478,13 @@ interface PrimaryMenuProps {
   onCompanyChange: (company: string | null) => void;
 }
 
-// Fake firm data
+// Fake firm data — up to 5 firms per Navigation V3 firm list (Figma node 334:11050)
 const AVAILABLE_FIRMS = [
   "Blackstone Capital Partners",
   "KKR Global Investments",
   "Apollo Investment Management",
+  "Carlyle Group",
+  "TPG Capital",
 ];
 
 // Fake fund data
@@ -503,6 +505,190 @@ const AVAILABLE_COMPANIES = [
   "Tesla Inc.",
 ];
 
+const STORAGE_PINNED_FIRMS = "navigation-summary-pinned-firms";
+const STORAGE_PINNED_FUNDS = "navigation-summary-pinned-funds";
+const STORAGE_PINNED_COMPANIES = "navigation-summary-pinned-companies";
+
+function readPinnedIds(key: string, valid: Set<string>): string[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x): x is string => typeof x === "string" && valid.has(x));
+  } catch {
+    return [];
+  }
+}
+
+function writePinnedIds(key: string, ids: string[]) {
+  try {
+    localStorage.setItem(key, JSON.stringify(ids));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function toggleIdInOrder(prev: string[], id: string): string[] {
+  if (prev.includes(id)) return prev.filter((x) => x !== id);
+  return [...prev, id];
+}
+
+interface NavPickerRowProps {
+  label: string;
+  selected: boolean;
+  showPinBesideName: boolean;
+  onSelect: () => void;
+  onTogglePin: () => void;
+}
+
+/** Pinned rows: filled pin beside name (pin click = unpin). Unpinned: name + outline pin to pin. */
+function NavPickerRow({
+  label,
+  selected,
+  showPinBesideName,
+  onSelect,
+  onTogglePin,
+}: NavPickerRowProps) {
+  const rowClass = selected
+    ? "bg-[#94a3b8] hover:bg-[#94a3b8]"
+    : "bg-white hover:bg-[#f1f5f9]";
+  const nameClass = selected
+    ? "text-[#0f172a] font-semibold"
+    : "text-[#475569] font-normal";
+  const pinMuted = "text-[#64748b]";
+  const pinActive = "text-[#037de8]";
+  const nameTypography = `truncate font-['Inter:Regular',sans-serif] text-[12px] leading-4 ${nameClass}`;
+
+  if (showPinBesideName) {
+    return (
+      <div className={`flex w-full items-stretch ${rowClass} transition-colors`}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onTogglePin();
+          }}
+          className="flex shrink-0 items-center px-2 py-2 hover:bg-black/5"
+          aria-label="Unpin"
+        >
+          <Pin className={`size-3.5 ${pinActive}`} fill="currentColor" strokeWidth={1.5} />
+        </button>
+        <button type="button" onClick={onSelect} className={`flex min-w-0 flex-1 items-center py-2 pr-2 text-left ${nameTypography}`}>
+          {label}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex w-full items-stretch ${rowClass} transition-colors`}>
+      <button type="button" onClick={onSelect} className={`flex min-w-0 flex-1 items-center px-2 py-2 text-left ${nameTypography}`}>
+        {label}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onTogglePin();
+        }}
+        className="flex shrink-0 items-center px-2 py-2 hover:bg-black/5"
+        aria-label="Pin"
+      >
+        <Pin className={`size-3.5 ${pinMuted}`} fill="none" strokeWidth={1.5} />
+      </button>
+    </div>
+  );
+}
+
+const PRIMARY_NAV_DROPDOWN_Z = 10000;
+const PRIMARY_NAV_DROPDOWN_WIDTH = 220;
+
+/**
+ * Same DOM/CSS structure as the Company dropdown search (Figma / in-tree reference).
+ * `type="text"` and `overflow-clip` + `size-[16px]` icon match the working Company picker.
+ */
+function PrimaryNavSearchField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="relative w-full shrink-0 rounded-[8px] bg-[#e3e8f0]" data-name="Button_Icon">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[8px] border border-solid border-[#64748b]"
+      />
+      <div className="flex w-full min-h-[36px] flex-row items-stretch">
+        <div className="content-stretch relative flex w-full min-h-[36px] items-center gap-[4px] px-[8px] py-[4px]">
+          <div className="relative size-[16px] shrink-0 overflow-clip" data-name="Search">
+            <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 32 32">
+              <g id="Vector" />
+            </svg>
+            <div className="absolute inset-[12.5%_14.63%_14.63%_12.5%]" data-name="Vector">
+              <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 11.66 11.66">
+                <path d={svgPaths.p2f0511f0} fill="var(--fill-0, #1E293B)" id="Vector" />
+              </svg>
+            </div>
+          </div>
+          <input
+            type="text"
+            autoComplete="off"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className="min-h-[28px] min-w-0 flex-1 bg-transparent font-['Inter:Regular',sans-serif] text-[14px] font-normal text-[#1e293b] outline-none placeholder:text-[#64748b]"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Firm dropdown search — [Navigation V3 / Firm dropdown menu](https://www.figma.com/design/ovDXo60vmHGOgtZN5knuAF/Navigation-V3?node-id=331-10875)
+ * Rows use the same NavPickerRow pattern as Fund / Company (pins on every row).
+ */
+function FirmDropdownSearchField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <div
+      className="flex w-full shrink-0 items-center gap-[4px] rounded-[8px] border border-solid border-[#64748b] bg-[#e3e8f0] px-[8px] py-[4px]"
+      data-name="Button_Icon"
+    >
+      <div className="relative size-[16px] shrink-0 overflow-clip" data-name="Search">
+        <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 32 32">
+          <g id="Vector" />
+        </svg>
+        <div className="absolute inset-[12.5%_14.63%_14.63%_12.5%]" data-name="Vector">
+          <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 11.66 11.66">
+            <path d={svgPaths.p2f0511f0} fill="var(--fill-0, #1E293B)" id="Vector" />
+          </svg>
+        </div>
+      </div>
+      <input
+        type="text"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Find a Firm"
+        className="min-h-[20px] min-w-0 flex-1 bg-transparent font-['Inter:Regular',sans-serif] text-[14px] font-normal leading-5 text-[#1e293b] outline-none placeholder:text-[#64748b]"
+      />
+    </div>
+  );
+}
+
 function PrimaryMenuComponent({
   selectedDates,
   onDatesChange,
@@ -515,14 +701,73 @@ function PrimaryMenuComponent({
   onCompanyChange,
 }: PrimaryMenuProps) {
   const [firmDropdownOpen, setFirmDropdownOpen] = useState(false);
+  const [firmSearchQuery, setFirmSearchQuery] = useState("");
   const firmPickerRef = useRef<HTMLDivElement>(null);
 
   const [fundDropdownOpen, setFundDropdownOpen] = useState(false);
+  const [fundSearchQuery, setFundSearchQuery] = useState("");
   const fundPickerRef = useRef<HTMLDivElement>(null);
 
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
   const companyPickerRef = useRef<HTMLDivElement>(null);
+
+  const fundDropdownPortalRef = useRef<HTMLDivElement>(null);
+  const companyDropdownPortalRef = useRef<HTMLDivElement>(null);
+
+  const [pinnedFirms, setPinnedFirms] = useState<string[]>(() =>
+    readPinnedIds(STORAGE_PINNED_FIRMS, new Set(AVAILABLE_FIRMS)),
+  );
+  const [pinnedFunds, setPinnedFunds] = useState<string[]>(() =>
+    readPinnedIds(STORAGE_PINNED_FUNDS, new Set(AVAILABLE_FUNDS)),
+  );
+  const [pinnedCompanies, setPinnedCompanies] = useState<string[]>(() =>
+    readPinnedIds(STORAGE_PINNED_COMPANIES, new Set(AVAILABLE_COMPANIES)),
+  );
+
+  const togglePinFirm = useCallback((name: string) => {
+    setPinnedFirms((prev) => {
+      const next = toggleIdInOrder(prev, name);
+      writePinnedIds(STORAGE_PINNED_FIRMS, next);
+      return next;
+    });
+  }, []);
+
+  const togglePinFund = useCallback((name: string) => {
+    setPinnedFunds((prev) => {
+      const next = toggleIdInOrder(prev, name);
+      writePinnedIds(STORAGE_PINNED_FUNDS, next);
+      return next;
+    });
+  }, []);
+
+  const togglePinCompany = useCallback((name: string) => {
+    setPinnedCompanies((prev) => {
+      const next = toggleIdInOrder(prev, name);
+      writePinnedIds(STORAGE_PINNED_COMPANIES, next);
+      return next;
+    });
+  }, []);
+
+  const firmQueryLower = firmSearchQuery.toLowerCase();
+  const firmsMatchingSearch = AVAILABLE_FIRMS.filter((f) =>
+    f.toLowerCase().includes(firmQueryLower),
+  );
+  const pinnedFirmsInMenu = pinnedFirms.filter((f) => firmsMatchingSearch.includes(f));
+  const unpinnedFirmsInMenu = firmsMatchingSearch.filter((f) => !pinnedFirms.includes(f));
+  const fundQueryLower = fundSearchQuery.toLowerCase();
+  const fundsMatchingSearch = AVAILABLE_FUNDS.filter((f) =>
+    f.toLowerCase().includes(fundQueryLower),
+  );
+  const pinnedFundsInMenu = pinnedFunds.filter((f) => fundsMatchingSearch.includes(f));
+  const unpinnedFundsInMenu = fundsMatchingSearch.filter((f) => !pinnedFunds.includes(f));
+
+  const companyQueryLower = companySearchQuery.toLowerCase();
+  const companiesMatchingSearch = AVAILABLE_COMPANIES.filter((c) =>
+    c.toLowerCase().includes(companyQueryLower),
+  );
+  const pinnedCompaniesInMenu = pinnedCompanies.filter((c) => companiesMatchingSearch.includes(c));
+  const unpinnedCompaniesInMenu = companiesMatchingSearch.filter((c) => !pinnedCompanies.includes(c));
 
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -555,13 +800,12 @@ function PrimaryMenuComponent({
     return () => document.removeEventListener("keydown", handler);
   }, [searchModalOpen]);
 
-  // Close firm dropdown on outside click
+  // Close firm dropdown on outside click (panel is in-tree under firmPickerRef)
   useEffect(() => {
     if (!firmDropdownOpen) return;
     const handler = (e: MouseEvent) => {
-      if (firmPickerRef.current && !firmPickerRef.current.contains(e.target as Node)) {
-        setFirmDropdownOpen(false);
-      }
+      if (firmPickerRef.current?.contains(e.target as Node)) return;
+      setFirmDropdownOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -577,13 +821,14 @@ function PrimaryMenuComponent({
     return () => document.removeEventListener("keydown", handler);
   }, [firmDropdownOpen]);
 
-  // Close fund dropdown on outside click
+  // Close fund dropdown on outside click (anchor + portalled panel)
   useEffect(() => {
     if (!fundDropdownOpen) return;
     const handler = (e: MouseEvent) => {
-      if (fundPickerRef.current && !fundPickerRef.current.contains(e.target as Node)) {
-        setFundDropdownOpen(false);
-      }
+      const t = e.target as Node;
+      if (fundPickerRef.current?.contains(t)) return;
+      if (fundDropdownPortalRef.current?.contains(t)) return;
+      setFundDropdownOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -599,13 +844,14 @@ function PrimaryMenuComponent({
     return () => document.removeEventListener("keydown", handler);
   }, [fundDropdownOpen]);
 
-  // Close company dropdown on outside click
+  // Close company dropdown on outside click (anchor + portalled panel)
   useEffect(() => {
     if (!companyDropdownOpen) return;
     const handler = (e: MouseEvent) => {
-      if (companyPickerRef.current && !companyPickerRef.current.contains(e.target as Node)) {
-        setCompanyDropdownOpen(false);
-      }
+      const t = e.target as Node;
+      if (companyPickerRef.current?.contains(t)) return;
+      if (companyDropdownPortalRef.current?.contains(t)) return;
+      setCompanyDropdownOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -621,17 +867,69 @@ function PrimaryMenuComponent({
     return () => document.removeEventListener("keydown", handler);
   }, [companyDropdownOpen]);
 
+  useEffect(() => {
+    if (!firmDropdownOpen) setFirmSearchQuery("");
+  }, [firmDropdownOpen]);
+
+  useEffect(() => {
+    if (!fundDropdownOpen) setFundSearchQuery("");
+  }, [fundDropdownOpen]);
+
+  useLayoutEffect(() => {
+    if (!fundDropdownOpen) return;
+    const anchor = fundPickerRef.current;
+    const panel = fundDropdownPortalRef.current;
+    if (!anchor || !panel) return;
+    const apply = () => {
+      const r = anchor.getBoundingClientRect();
+      panel.style.position = "fixed";
+      panel.style.top = `${r.bottom + 4}px`;
+      panel.style.left = `${r.left}px`;
+      panel.style.width = `${PRIMARY_NAV_DROPDOWN_WIDTH}px`;
+      panel.style.zIndex = `${PRIMARY_NAV_DROPDOWN_Z}`;
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    document.addEventListener("scroll", apply, true);
+    return () => {
+      window.removeEventListener("resize", apply);
+      document.removeEventListener("scroll", apply, true);
+    };
+  }, [fundDropdownOpen]);
+
+  useLayoutEffect(() => {
+    if (!companyDropdownOpen) return;
+    const anchor = companyPickerRef.current;
+    const panel = companyDropdownPortalRef.current;
+    if (!anchor || !panel) return;
+    const apply = () => {
+      const r = anchor.getBoundingClientRect();
+      panel.style.position = "fixed";
+      panel.style.top = `${r.bottom + 4}px`;
+      panel.style.left = `${r.left}px`;
+      panel.style.width = `${PRIMARY_NAV_DROPDOWN_WIDTH}px`;
+      panel.style.zIndex = `${PRIMARY_NAV_DROPDOWN_Z}`;
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    document.addEventListener("scroll", apply, true);
+    return () => {
+      window.removeEventListener("resize", apply);
+      document.removeEventListener("scroll", apply, true);
+    };
+  }, [companyDropdownOpen]);
+
   return (
-    <div className="bg-[#0f172a] relative shrink-0 w-full" data-name="Primary Menu">
-      <div className="flex flex-row items-center size-full">
-        <div className="content-stretch flex gap-[8px] items-center px-[16px] py-[8px] relative w-full">
+    <div className="relative w-full shrink-0 overflow-visible bg-[#0f172a]" data-name="Primary Menu">
+      <div className="flex size-full flex-row items-center overflow-visible">
+        <div className="content-stretch relative flex w-full items-center gap-[8px] overflow-visible px-[16px] py-[8px]">
           <div className="relative shrink-0 size-[28px]" data-name="Logo">
             <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 28 28">
               <path d={svgPaths.p1309200} fill="var(--fill-0, white)" id="Logo" />
             </svg>
           </div>
-          <div className="content-stretch flex gap-[8px] items-center relative shrink-0">
-            <div ref={firmPickerRef} className="relative">
+          <div className="content-stretch relative flex shrink-0 items-center gap-[8px] overflow-visible">
+            <div ref={firmPickerRef} className="relative overflow-visible">
               <button
                 type="button"
                 onClick={() => setFirmDropdownOpen((o) => !o)}
@@ -667,29 +965,53 @@ function PrimaryMenuComponent({
                 </div>
               </button>
 
-              {/* Firm Dropdown */}
+              {/* Firm dropdown menu — Figma 331:10875 (absolute under picker) */}
               {firmDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-[220px] bg-white border border-[#e5e5e5] rounded-[8px] shadow-xl overflow-hidden font-['Inter',sans-serif]">
-                  {AVAILABLE_FIRMS.map((firm) => (
-                    <button
-                      key={firm}
-                      onClick={() => {
-                        onFirmChange(firm);
-                        setFirmDropdownOpen(false);
-                      }}
-                      className={`w-full flex items-center px-3 py-2 text-left transition-colors ${
-                        firm === selectedFirm
-                          ? "bg-[#037de8] hover:bg-[#0267c1]"
-                          : "bg-white hover:bg-[#f0f4f8]"
-                      }`}
-                    >
-                      <span className={`text-[12px] ${
-                        firm === selectedFirm ? "text-white font-semibold" : "text-[#475569] font-normal"
-                      }`}>
-                        {firm}
-                      </span>
-                    </button>
-                  ))}
+                <div
+                  className="absolute left-0 top-full z-50 mt-1 w-[220px] overflow-hidden rounded-[8px] border border-[#e5e5e5] bg-white font-['Inter',sans-serif] shadow-xl"
+                  data-name="Firm dropdown menu"
+                >
+                  <div className="flex flex-col gap-[8px] p-[8px]">
+                    <FirmDropdownSearchField value={firmSearchQuery} onChange={setFirmSearchQuery} />
+
+                    <div className="flex w-full flex-col items-start" data-name="Menu Container">
+                      {pinnedFirmsInMenu.length > 0 && (
+                        <div className="relative flex max-h-[96px] w-full shrink-0 flex-col overflow-y-auto border-b border-[#e5e5e5] pb-2">
+                          {pinnedFirmsInMenu.map((firm) => (
+                            <NavPickerRow
+                              key={`pinned-firm-${firm}`}
+                              label={firm}
+                              selected={firm === selectedFirm}
+                              showPinBesideName
+                              onSelect={() => {
+                                onFirmChange(firm);
+                                setFirmDropdownOpen(false);
+                                setFirmSearchQuery("");
+                              }}
+                              onTogglePin={() => togglePinFirm(firm)}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="relative flex h-[128px] w-full shrink-0 flex-col items-start overflow-y-auto">
+                        {unpinnedFirmsInMenu.map((firm) => (
+                          <NavPickerRow
+                            key={firm}
+                            label={firm}
+                            selected={firm === selectedFirm}
+                            showPinBesideName={false}
+                            onSelect={() => {
+                              onFirmChange(firm);
+                              setFirmDropdownOpen(false);
+                              setFirmSearchQuery("");
+                            }}
+                            onTogglePin={() => togglePinFirm(firm)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -733,31 +1055,91 @@ function PrimaryMenuComponent({
                 </div>
               </button>
 
-              {/* Fund Dropdown */}
-              {fundDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-[220px] bg-white border border-[#e5e5e5] rounded-[8px] shadow-xl overflow-hidden font-['Inter',sans-serif]">
-                  {AVAILABLE_FUNDS.map((fund) => (
-                    <button
-                      key={fund}
-                      onClick={() => {
-                        onFundChange(fund);
-                        setFundDropdownOpen(false);
-                      }}
-                      className={`w-full flex items-center px-3 py-2 text-left transition-colors ${
-                        fund === selectedFund
-                          ? "bg-[#037de8] hover:bg-[#0267c1]"
-                          : "bg-white hover:bg-[#f0f4f8]"
-                      }`}
+              {/* Fund Dropdown — portalled */}
+              {fundDropdownOpen &&
+                createPortal(
+                  <div
+                    ref={fundDropdownPortalRef}
+                    className="flex w-[220px] flex-col gap-[8px] rounded-[8px] border border-[#e5e5e5] bg-white p-[8px] font-['Inter',sans-serif] shadow-xl"
+                  >
+                    <PrimaryNavSearchField
+                      value={fundSearchQuery}
+                      onChange={setFundSearchQuery}
+                      placeholder="Find a Fund"
+                    />
+
+                    {pinnedFundsInMenu.length > 0 && (
+                      <div className="relative flex max-h-[96px] w-full shrink-0 flex-col overflow-y-auto border-b border-[#e5e5e5] pb-2">
+                        {pinnedFundsInMenu.map((fund) => (
+                          <NavPickerRow
+                            key={`pinned-fund-${fund}`}
+                            label={fund}
+                            selected={fund === selectedFund}
+                            showPinBesideName
+                            onSelect={() => {
+                              onFundChange(fund);
+                              setFundDropdownOpen(false);
+                              setFundSearchQuery("");
+                            }}
+                            onTogglePin={() => togglePinFund(fund)}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <div
+                      className="relative flex h-[128px] w-full shrink-0 flex-col items-start overflow-y-auto"
+                      data-name="Menu Container"
                     >
-                      <span className={`text-[12px] ${
-                        fund === selectedFund ? "text-white font-semibold" : "text-[#475569] font-normal"
-                      }`}>
-                        {fund}
-                      </span>
+                      {unpinnedFundsInMenu.map((fund) => (
+                        <NavPickerRow
+                          key={fund}
+                          label={fund}
+                          selected={fund === selectedFund}
+                          showPinBesideName={false}
+                          onSelect={() => {
+                            onFundChange(fund);
+                            setFundDropdownOpen(false);
+                            setFundSearchQuery("");
+                          }}
+                          onTogglePin={() => togglePinFund(fund)}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        console.log("Add new fund clicked");
+                      }}
+                      className="relative w-full shrink-0 rounded-[4px] transition-colors hover:bg-[#f0f7ff]"
+                      data-name="Button"
+                    >
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 rounded-[4px] border border-solid border-[#037de8]"
+                      />
+                      <div className="flex size-full flex-row items-center justify-center">
+                        <div className="relative flex w-full items-center justify-center gap-1 p-1">
+                          <div className="relative size-4 shrink-0 overflow-hidden" data-name="Add">
+                            <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 32 32">
+                              <g id="Vector" />
+                            </svg>
+                            <div className="absolute inset-[20.83%]" data-name="Vector">
+                              <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 9.33333 9.33333">
+                                <path d={svgPaths.p951d880} fill="var(--fill-0, #037DE8)" id="Vector" />
+                              </svg>
+                            </div>
+                          </div>
+                          <div className="flex flex-col justify-center font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-4 text-[#037de8]">
+                            Add New Fund
+                          </div>
+                        </div>
+                      </div>
                     </button>
-                  ))}
-                </div>
-              )}
+                  </div>,
+                  document.body,
+                )}
             </div>
             <div ref={companyPickerRef} className="relative">
               <button
@@ -795,99 +1177,92 @@ function PrimaryMenuComponent({
                 </div>
               </button>
 
-              {/* Company Dropdown */}
-              {companyDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-[220px] bg-white rounded-[8px] shadow-xl overflow-hidden font-['Inter',sans-serif] p-[8px] flex flex-col gap-[8px]">
-                  {/* Search Input */}
-                  <div className="bg-[#e3e8f0] relative rounded-[8px] shrink-0 w-full" data-name="Button_Icon">
-                    <div aria-hidden="true" className="absolute border border-[#64748b] border-solid inset-0 pointer-events-none rounded-[8px]" />
-                    <div className="flex flex-row items-center size-full">
-                      <div className="content-stretch flex gap-[4px] items-center px-[8px] py-[4px] relative w-full">
-                        <div className="overflow-clip relative shrink-0 size-[16px]" data-name="Search">
-                          <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 32 32">
-                            <g id="Vector" />
-                          </svg>
-                          <div className="absolute inset-[12.5%_14.63%_14.63%_12.5%]" data-name="Vector">
-                            <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 11.66 11.66">
-                              <path d={svgPaths.p2f0511f0} fill="var(--fill-0, #1E293B)" id="Vector" />
-                            </svg>
-                          </div>
-                        </div>
-                        <input
-                          type="text"
-                          value={companySearchQuery}
-                          onChange={(e) => setCompanySearchQuery(e.target.value)}
-                          placeholder="Find a Company"
-                          className="flex-1 bg-transparent font-['Inter:Regular',sans-serif] font-normal text-[#1e293b] text-[14px] outline-none placeholder:text-[#64748b]"
-                        />
-                      </div>
-                    </div>
-                  </div>
+              {/* Company Dropdown — portalled */}
+              {companyDropdownOpen &&
+                createPortal(
+                  <div
+                    ref={companyDropdownPortalRef}
+                    className="flex w-[220px] flex-col gap-[8px] rounded-[8px] border border-[#e5e5e5] bg-white p-[8px] font-['Inter',sans-serif] shadow-xl"
+                  >
+                    <PrimaryNavSearchField
+                      value={companySearchQuery}
+                      onChange={setCompanySearchQuery}
+                      placeholder="Find a Company"
+                    />
 
-                  {/* Scrollable Company List */}
-                  <div className="content-stretch flex flex-col h-[128px] items-start relative shrink-0 w-full overflow-y-auto" data-name="Menu Container">
-                    {AVAILABLE_COMPANIES
-                      .filter((company) =>
-                        company.toLowerCase().includes(companySearchQuery.toLowerCase()),
-                      )
-                      .map((company) => (
-                        <button
+                    {pinnedCompaniesInMenu.length > 0 && (
+                      <div className="relative flex max-h-[96px] w-full shrink-0 flex-col overflow-y-auto border-b border-[#e5e5e5] pb-2">
+                        {pinnedCompaniesInMenu.map((company) => (
+                          <NavPickerRow
+                            key={`pinned-company-${company}`}
+                            label={company}
+                            selected={company === selectedCompany}
+                            showPinBesideName
+                            onSelect={() => {
+                              onCompanyChange(company);
+                              setCompanyDropdownOpen(false);
+                              setCompanySearchQuery("");
+                            }}
+                            onTogglePin={() => togglePinCompany(company)}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <div
+                      className="relative flex h-[128px] w-full shrink-0 flex-col items-start overflow-y-auto"
+                      data-name="Menu Container"
+                    >
+                      {unpinnedCompaniesInMenu.map((company) => (
+                        <NavPickerRow
                           key={company}
-                          onClick={() => {
+                          label={company}
+                          selected={company === selectedCompany}
+                          showPinBesideName={false}
+                          onSelect={() => {
                             onCompanyChange(company);
                             setCompanyDropdownOpen(false);
                             setCompanySearchQuery("");
                           }}
-                          className={`${
-                            company === selectedCompany ? "bg-[#94a3b8]" : "bg-white hover:bg-[#f1f5f9]"
-                          } relative shrink-0 w-full transition-colors`}
-                          data-name="Submenu Item"
-                        >
-                          <div className="flex flex-row items-center size-full">
-                            <div className="content-stretch flex items-center p-[8px] relative w-full">
-                              <div className="flex flex-[1_0_0] flex-col font-['Inter:Regular',sans-serif] font-normal justify-center leading-[0] min-h-px min-w-px not-italic relative text-[12px] text-left">
-                                <p className={`leading-[16px] ${
-                                  company === selectedCompany ? "text-[#0f172a]" : "text-[#475569]"
-                                }`}>
-                                  {company}
-                                </p>
-                              </div>
+                          onTogglePin={() => togglePinCompany(company)}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // TODO: Implement add new company logic
+                        console.log("Add new company clicked");
+                      }}
+                      className="relative w-full shrink-0 rounded-[4px] transition-colors hover:bg-[#f0f7ff]"
+                      data-name="Button"
+                    >
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 rounded-[4px] border border-solid border-[#037de8]"
+                      />
+                      <div className="flex size-full flex-row items-center justify-center">
+                        <div className="relative flex w-full items-center justify-center gap-1 p-1">
+                          <div className="relative size-4 shrink-0 overflow-hidden" data-name="Add">
+                            <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 32 32">
+                              <g id="Vector" />
+                            </svg>
+                            <div className="absolute inset-[20.83%]" data-name="Vector">
+                              <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 9.33333 9.33333">
+                                <path d={svgPaths.p951d880} fill="var(--fill-0, #037DE8)" id="Vector" />
+                              </svg>
                             </div>
                           </div>
-                        </button>
-                      ))}
-                  </div>
-
-                  {/* Add New Company Button */}
-                  <button
-                    onClick={() => {
-                      // TODO: Implement add new company logic
-                      console.log("Add new company clicked");
-                    }}
-                    className="relative rounded-[4px] shrink-0 w-full hover:bg-[#f0f7ff] transition-colors"
-                    data-name="Button"
-                  >
-                    <div aria-hidden="true" className="absolute border border-[#037de8] border-solid inset-0 pointer-events-none rounded-[4px]" />
-                    <div className="flex flex-row items-center justify-center size-full">
-                      <div className="content-stretch flex gap-[4px] items-center justify-center p-[4px] relative w-full">
-                        <div className="overflow-clip relative shrink-0 size-[16px]" data-name="Add">
-                          <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 32 32">
-                            <g id="Vector" />
-                          </svg>
-                          <div className="absolute inset-[20.83%]" data-name="Vector">
-                            <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 9.33333 9.33333">
-                              <path d={svgPaths.p951d880} fill="var(--fill-0, #037DE8)" id="Vector" />
-                            </svg>
+                          <div className="flex flex-col justify-center font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-4 text-[#037de8]">
+                            Add New Company
                           </div>
                         </div>
-                        <div className="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] not-italic relative shrink-0 text-[#037de8] text-[12px] text-center whitespace-nowrap">
-                          <p className="leading-[16px]">Add New Company</p>
-                        </div>
                       </div>
-                    </div>
-                  </button>
-                </div>
-              )}
+                    </button>
+                  </div>,
+                  document.body,
+                )}
             </div>
             
           </div>
